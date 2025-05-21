@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulação de Pêndulo Invertido</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Otimização de Controle de Pêndulo Invertido</h1>
+        <nav>
+            <ul>
+                <li><a href="#" class="active" data-system="fis">Sistema FIS</a></li>
+                <li><a href="#" data-system="genetic">Sistema Genético-Fuzzy</a></li>
+                <li><a href="#" data-system="neuro">Sistema Neuro-Fuzzy</a></li>
+                <li><a href="#" data-system="comparison">Comparação</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section id="simulation-container">
+            <h2>Simulação do Pêndulo Invertido</h2>
+            <div class="simulation-area">
+                <canvas id="pendulum-canvas" width="800" height="400"></canvas>
+                <div class="simulation-controls">
+                    <button id="start-btn">Iniciar</button>
+                    <button id="pause-btn">Pausar</button>
+                    <button id="reset-btn">Reiniciar</button>
+                    <div class="simulation-speed">
+                        <label for="speed-slider">Velocidade:</label>
+                        <input type="range" id="speed-slider" min="0.1" max="2" step="0.1" value="1">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="control-panel">
+            <h2>Painel de Controle</h2>
+            <div class="system-container" id="fis-system">
+                <h3>Sistema de Inferência Fuzzy (FIS)</h3>
+                <div class="parameter-controls">
+                    <div class="parameter-group">
+                        <h4>Pêndulo</h4>
+                        <div class="parameter">
+                            <label for="pendulum-angle">Ângulo Inicial:</label>
+                            <input type="range" id="pendulum-angle" min="-45" max="45" value="5" step="1">
+                            <span class="value">5°</span>
+                        </div>
+                        <div class="parameter">
+                            <label for="pendulum-angular-velocity">Velocidade Angular Inicial:</label>
+                            <input type="range" id="pendulum-angular-velocity" min="-10" max="10" value="0" step="0.5">
+                            <span class="value">0 rad/s</span>
+                        </div>
+                    </div>
+                    <div class="parameter-group">
+                        <h4>Carro</h4>
+                        <div class="parameter">
+                            <label for="cart-position">Posição Inicial:</label>
+                            <input type="range" id="cart-position" min="-5" max="5" value="0" step="0.1">
+                            <span class="value">0 m</span>
+                        </div>
+                        <div class="parameter">
+                            <label for="cart-velocity">Velocidade Inicial:</label>
+                            <input type="range" id="cart-velocity" min="-5" max="5" value="0" step="0.1">
+                            <span class="value">0 m/s</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="membership-functions">
+                    <div class="membership-group">
+                        <h4>Funções de Pertinência</h4>
+                        <div class="membership-canvas-container">
+                            <canvas id="angle-membership" width="300" height="150"></canvas>
+                            <p>Ângulo do Pêndulo</p>
+                        </div>
+                        <div class="membership-canvas-container">
+                            <canvas id="angular-velocity-membership" width="300" height="150"></canvas>
+                            <p>Velocidade Angular</p>
+                        </div>
+                        <div class="membership-canvas-container">
+                            <canvas id="position-membership" width="300" height="150"></canvas>
+                            <p>Posição do Carro</p>
+                        </div>
+                        <div class="membership-canvas-container">
+                            <canvas id="velocity-membership" width="300" height="150"></canvas>
+                            <p>Velocidade do Carro</p>
+                        </div>
+                        <div class="membership-canvas-container">
+                            <canvas id="output-membership" width="300" height="150"></canvas>
+                            <p>Saída (Força)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="system-container hidden" id="genetic-system">
+                <h3>Sistema Genético-Fuzzy</h3>
+                <div class="parameter-controls">
+                    <div class="parameter-group">
+                        <h4>Parâmetros Genéticos</h4>
+                        <div class="parameter">
+                            <label for="population-size">Tamanho da População:</label>
+                            <input type="range" id="population-size" min="10" max="100" value="50" step="5">
+                            <span class="value">50</span>
+                        </div>
+                        <div class="parameter">
+                            <label for="mutation-rate">Taxa de Mutação:</label>
+                            <input type="range" id="mutation-rate" min="0.01" max="0.5" value="0.1" step="0.01">
+                            <span class="value">0.1</span>
+                        </div>
+                        <div class="parameter">
+                            <label for="crossover-rate">Taxa de Crossover:</label>
+                            <input type="range" id="crossover-rate" min="0.1" max="1" value="0.8" step="0.05">
+                            <span class="value">0.8</span>
+                        </div>
+                        <div class="parameter">
+                            <label for="generations">Número de Gerações:</label>
+                            <input type="range" id="generations" min="10" max="100" value="30" step="5">
+                            <span class="value">30</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="genetic-visualization">
+                    <div class="genetic-canvas-container">
+                        <canvas id="fitness-evolution" width="600" height="300"></canvas>
+                        <p>Evolução do Fitness ao Longo das Gerações</p>
+                    </div>
+                    <div class="genetic-canvas-container">
+                        <canvas id="rule-visualization" width="600" height="300"></canvas>
+                        <p>Visualização das Regras Otimizadas</p>
+                    </div>
+                </div>
+                <button id="train-genetic">Treinar Sistema Genético-Fuzzy</button>
+            </div>
+
+            <div class="system-container hidden" id="neuro-system">
+                <h3>Sistema Neuro-Fuzzy</h3>
+                <div class="parameter-controls">
+                    <div class="parameter-group">
+                        <h4>Parâmetros da Rede Neural</h4>
+                        <div class="parameter">
+                            <label for="hidden-layers">Camadas Ocultas:</label>
+                            <input type="range" id="hidden-layers" min="1" max="5" value="2" step="1">
+                            <span class="value">2</span>
+                        </div>
+                        <div class="parameter">
+                            <label for="neurons-per-layer">Neurônios por Camada:</label>
+                            <input type="range" id="neurons-per-layer" min="5" max="50" value="20" step="5">
+                            <span class="value">20</span>
+                        </div>
+                        <div class="parameter">
+                            <label for="learning-rate">Taxa de Aprendizado:</label>
+                            <input type="range" id="learning-rate" min="0.001" max="0.1" value="0.01" step="0.001">
+                            <span class="value">0.01</span>
+                        </div>
+                        <div class="parameter">
+                            <label for="epochs">Épocas de Treinamento:</label>
+                            <input type="range" id="epochs" min="10" max="200" value="50" step="10">
+                            <span class="value">50</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="neural-visualization">
+                    <div class="neural-canvas-container">
+                        <canvas id="network-visualization" width="600" height="300"></canvas>
+                        <p>Visualização da Rede Neural</p>
+                    </div>
+                    <div class="neural-canvas-container">
+                        <canvas id="training-progress" width="600" height="300"></canvas>
+                        <p>Progresso do Treinamento</p>
+                    </div>
+                </div>
+                <button id="train-neural">Treinar Sistema Neuro-Fuzzy</button>
+            </div>
+
+            <div class="system-container hidden" id="comparison-system">
+                <h3>Comparação dos Sistemas</h3>
+                <div class="comparison-visualization">
+                    <div class="comparison-canvas-container">
+                        <canvas id="performance-comparison" width="800" height="400"></canvas>
+                        <p>Comparação de Desempenho</p>
+                    </div>
+                    <div class="comparison-metrics">
+                        <table id="metrics-table">
+                            <thead>
+                                <tr>
+                                    <th>Métrica</th>
+                                    <th>FIS</th>
+                                    <th>Genético-Fuzzy</th>
+                                    <th>Neuro-Fuzzy</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Tempo de Estabilização</td>
+                                    <td id="fis-stabilization">-</td>
+                                    <td id="genetic-stabilization">-</td>
+                                    <td id="neuro-stabilization">-</td>
+                                </tr>
+                                <tr>
+                                    <td>Erro Médio</td>
+                                    <td id="fis-error">-</td>
+                                    <td id="genetic-error">-</td>
+                                    <td id="neuro-error">-</td>
+                                </tr>
+                                <tr>
+                                    <td>Consumo de Energia</td>
+                                    <td id="fis-energy">-</td>
+                                    <td id="genetic-energy">-</td>
+                                    <td id="neuro-energy">-</td>
+                                </tr>
+                                <tr>
+                                    <td>Robustez</td>
+                                    <td id="fis-robustness">-</td>
+                                    <td id="genetic-robustness">-</td>
+                                    <td id="neuro-robustness">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="performance-graphs">
+            <h2>Gráficos de Desempenho</h2>
+            <div class="graph-container">
+                <div class="graph">
+                    <canvas id="angle-graph" width="600" height="300"></canvas>
+                    <p>Ângulo do Pêndulo ao Longo do Tempo</p>
+                </div>
+                <div class="graph">
+                    <canvas id="position-graph" width="600" height="300"></canvas>
+                    <p>Posição do Carro ao Longo do Tempo</p>
+                </div>
+                <div class="graph">
+                    <canvas id="control-force-graph" width="600" height="300"></canvas>
+                    <p>Força de Controle ao Longo do Tempo</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Desenvolvido para a Avaliação N2 - Prof. Claudinei Dias (Ney)</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/pendulum.js"></script>
+    <script src="js/fis.js"></script>
+    <script src="js/genetic.js"></script>
+    <script src="js/neural.js"></script>
+    <script src="js/visualization.js"></script>
+    <script src="js/graphs.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
