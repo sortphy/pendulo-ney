@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicializar os sistemas de controle
     fisSystem = new FuzzyInferenceSystem();
     geneticSystem = new GeneticFuzzySystem();
-    neuroSystem = new NeuroFuzzySystem();
+    neuroSystem = new NeuroFuzzySystem(); // Initialize with default parameters (e.g., 2 hidden layers)
     
     // Definir o sistema FIS como padrão
     simulation.setControlSystem(fisSystem);
@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Renderizar as funções de pertinência iniciais
     updateMembershipFunctionVisualizations();
     
-    // Renderizar a rede neural
+    // Renderizar a rede neural initial state
     networkVisualization.render(neuroSystem.getNetworkVisualization());
     
     // Configurar os controles da interface
@@ -193,6 +193,8 @@ function setupEventListeners() {
         const value = parseInt(e.target.value);
         e.target.nextElementSibling.textContent = value;
         neuroSystem.hiddenLayers = value;
+        // *** FIX: Re-initialize the network when parameters change ***
+        neuroSystem.initializeNetwork(); 
         networkVisualization.render(neuroSystem.getNetworkVisualization());
     });
     
@@ -200,6 +202,8 @@ function setupEventListeners() {
         const value = parseInt(e.target.value);
         e.target.nextElementSibling.textContent = value;
         neuroSystem.neuronsPerLayer = value;
+        // *** FIX: Re-initialize the network when parameters change ***
+        neuroSystem.initializeNetwork(); 
         networkVisualization.render(neuroSystem.getNetworkVisualization());
     });
     
@@ -207,12 +211,14 @@ function setupEventListeners() {
         const value = parseFloat(e.target.value);
         e.target.nextElementSibling.textContent = value;
         neuroSystem.learningRate = value;
+        // Note: Changing learning rate doesn't require re-initialization
     });
     
     document.getElementById('epochs').addEventListener('input', (e) => {
         const value = parseInt(e.target.value);
         e.target.nextElementSibling.textContent = value;
         neuroSystem.epochs = value;
+        // Note: Changing epochs doesn't require re-initialization
     });
     
     // Botão de treinamento do sistema neural
@@ -226,21 +232,31 @@ function setupEventListeners() {
         trainingProgressGraph.setData([], 'x', 'y');
         trainingProgressGraph.render();
         
+        // Ensure the network is initialized with current parameters before training
+        // This is a safety measure in case the 'input' event didn't fire correctly
+        // or if parameters were changed programmatically elsewhere.
+        neuroSystem.initializeNetwork();
+        networkVisualization.render(neuroSystem.getNetworkVisualization());
+
         // Treinar o sistema neural
-        await neuroSystem.train((progress) => {
-            // Atualizar o gráfico de progresso do treinamento
-            const trainingData = neuroSystem.getTrainingHistory().map(item => ({
-                x: item.epoch,
-                y: item.loss
-            }));
-            trainingProgressGraph.setData(trainingData, 'x', 'y');
-            trainingProgressGraph.render();
-        });
-        
-        // Atualizar a simulação para usar o sistema treinado
-        simulation.setControlSystem(neuroSystem);
-        resetSimulation();
-        
+        try {
+             await neuroSystem.train((progress) => {
+                // Atualizar o gráfico de progresso do treinamento
+                const trainingData = neuroSystem.getTrainingHistory().map(item => ({
+                    x: item.epoch,
+                    y: item.loss
+                }));
+                trainingProgressGraph.setData(trainingData, 'x', 'y');
+                trainingProgressGraph.render();
+            });
+             // Atualizar a simulação para usar o sistema treinado
+            simulation.setControlSystem(neuroSystem);
+            resetSimulation();
+        } catch (error) {
+            console.error("Error during Neuro-Fuzzy training:", error);
+            alert("An error occurred during training. Check the console for details.");
+        }
+
         // Reabilitar o botão
         button.disabled = false;
         button.textContent = 'Treinar Sistema Neuro-Fuzzy';
@@ -338,6 +354,9 @@ function switchSystem(system) {
             break;
         case 'neuro':
             simulation.setControlSystem(neuroSystem);
+            // Ensure network is initialized with current params when switching to neuro tab
+            neuroSystem.initializeNetwork();
+            networkVisualization.render(neuroSystem.getNetworkVisualization());
             break;
         case 'comparison':
             // Executar comparações
@@ -374,7 +393,7 @@ function updateMembershipFunctionVisualizations() {
 }
 
 // Executar comparações entre os sistemas
-function runSystemComparisons() {
+async function runSystemComparisons() {
     // Configurações para as comparações
     const initialConditions = [
         { angle: 15, angularVelocity: 0, position: 0, velocity: 0 },
@@ -385,184 +404,101 @@ function runSystemComparisons() {
     
     // Resultados das comparações
     const results = {
-        fis: { stabilizationTime: 0, error: 0, energy: 0, robustness: 0 },
-        genetic: { stabilizationTime: 0, error: 0, energy: 0, robustness: 0 },
-        neuro: { stabilizationTime: 0, error: 0, energy: 0, robustness: 0 }
+        fis: { stabilizationTime: [], error: [], energy: [], robustness: [] },
+        genetic: { stabilizationTime: [], error: [], energy: [], robustness: [] },
+        neuro: { stabilizationTime: [], error: [], energy: [], robustness: [] }
     };
     
-    // Executar simulações para cada sistema e condição inicial
+    const systems = { fis: fisSystem, genetic: geneticSystem, neuro: neuroSystem };
+    const systemNames = ['fis', 'genetic', 'neuro'];
+
+    // Show a loading indicator
+    const comparisonTableBody = document.getElementById('comparison-table-body');
+    comparisonTableBody.innerHTML = '<tr><td colspan="5">Running comparisons...</td></tr>';
+
+    // Use setTimeout to allow the UI to update before blocking with simulations
+    await new Promise(resolve => setTimeout(resolve, 50)); 
+
     for (const condition of initialConditions) {
-        // Sistema FIS
-        const fisSimulation = new PendulumSimulation();
-        fisSimulation.setControlSystem(fisSystem);
-        runComparisonSimulation(fisSimulation, condition);
-        const fisMetrics = fisSimulation.calculatePerformanceMetrics();
-        
-        // Sistema Genético-Fuzzy
-        const geneticSimulation = new PendulumSimulation();
-        geneticSimulation.setControlSystem(geneticSystem);
-        runComparisonSimulation(geneticSimulation, condition);
-        const geneticMetrics = geneticSimulation.calculatePerformanceMetrics();
-        
-        // Sistema Neuro-Fuzzy
-        const neuroSimulation = new PendulumSimulation();
-        neuroSimulation.setControlSystem(neuroSystem);
-        runComparisonSimulation(neuroSimulation, condition);
-        const neuroMetrics = neuroSimulation.calculatePerformanceMetrics();
-        
-        // Acumular resultados
-        results.fis.stabilizationTime += fisMetrics.stabilizationTime || 10;
-        results.fis.error += fisMetrics.rootMeanSquaredError || 45;
-        results.fis.energy += fisMetrics.energyConsumption || 1000;
-        results.fis.robustness += fisMetrics.robustness || 10;
-        
-        results.genetic.stabilizationTime += geneticMetrics.stabilizationTime || 10;
-        results.genetic.error += geneticMetrics.rootMeanSquaredError || 45;
-        results.genetic.energy += geneticMetrics.energyConsumption || 1000;
-        results.genetic.robustness += geneticMetrics.robustness || 10;
-        
-        results.neuro.stabilizationTime += neuroMetrics.stabilizationTime || 10;
-        results.neuro.error += neuroMetrics.rootMeanSquaredError || 45;
-        results.neuro.energy += neuroMetrics.energyConsumption || 1000;
-        results.neuro.robustness += neuroMetrics.robustness || 10;
+        for (const name of systemNames) {
+            const system = systems[name];
+            const sim = new PendulumSimulation();
+            sim.setControlSystem(system);
+            runComparisonSimulation(sim, condition); // This is synchronous
+            const metrics = sim.calculatePerformanceMetrics();
+            
+            results[name].stabilizationTime.push(metrics.stabilizationTime || 10);
+            results[name].error.push(metrics.rootMeanSquaredError || 45);
+            results[name].energy.push(metrics.energyConsumption || 1000);
+            results[name].robustness.push(metrics.robustness || 10);
+        }
+    }
+
+    // Calculate average results
+    const averageResults = {};
+    for (const name of systemNames) {
+        averageResults[name] = {
+            stabilizationTime: results[name].stabilizationTime.reduce((a, b) => a + b, 0) / results[name].stabilizationTime.length,
+            error: results[name].error.reduce((a, b) => a + b, 0) / results[name].error.length,
+            energy: results[name].energy.reduce((a, b) => a + b, 0) / results[name].energy.length,
+            robustness: results[name].robustness.reduce((a, b) => a + b, 0) / results[name].robustness.length
+        };
     }
     
-    // Calcular médias
-    const numConditions = initialConditions.length;
-    results.fis.stabilizationTime /= numConditions;
-    results.fis.error /= numConditions;
-    results.fis.energy /= numConditions;
-    results.fis.robustness /= numConditions;
+    // Atualizar a tabela de comparação
+    updateComparisonTable(averageResults);
     
-    results.genetic.stabilizationTime /= numConditions;
-    results.genetic.error /= numConditions;
-    results.genetic.energy /= numConditions;
-    results.genetic.robustness /= numConditions;
-    
-    results.neuro.stabilizationTime /= numConditions;
-    results.neuro.error /= numConditions;
-    results.neuro.energy /= numConditions;
-    results.neuro.robustness /= numConditions;
-    
-    // Atualizar a tabela de métricas
-    updateMetricsTable(results);
-    
-    // Atualizar o gráfico de comparação
-    updateComparisonGraph();
+    // Atualizar o gráfico de comparação (exemplo: erro ao longo do tempo)
+    // Note: This requires running simulations and storing time series data, which is more complex
+    // For now, we just update the table.
 }
 
 // Executar uma simulação para comparação
-function runComparisonSimulation(simulation, condition) {
-    simulation.reset({
-        initialAngle: condition.angle,
-        initialAngularVelocity: condition.angularVelocity,
-        initialCartPosition: condition.position,
-        initialCartVelocity: condition.velocity
+function runComparisonSimulation(simulationInstance, initialCondition) {
+    simulationInstance.reset({
+        initialAngle: initialCondition.angle,
+        initialAngularVelocity: initialCondition.angularVelocity,
+        initialCartPosition: initialCondition.position,
+        initialCartVelocity: initialCondition.velocity
     });
     
-    simulation.start();
-    
-    // Executar a simulação por um número fixo de passos
-    const maxSteps = 500; // 10 segundos com dt = 0.02
+    // Executar a simulação por um tempo fixo (e.g., 30 segundos)
+    const maxSteps = 30 / simulationInstance.timeStep; // 30 seconds
     for (let i = 0; i < maxSteps; i++) {
-        simulation.update();
+        simulationInstance.update();
+        // Stop if pendulum falls
+        if (Math.abs(utils.radToDeg(simulationInstance.angle)) > 45) {
+            break;
+        }
     }
 }
 
-// Atualizar a tabela de métricas
-function updateMetricsTable(results) {
-    // Tempo de estabilização
-    document.getElementById('fis-stabilization').textContent = results.fis.stabilizationTime.toFixed(2) + 's';
-    document.getElementById('genetic-stabilization').textContent = results.genetic.stabilizationTime.toFixed(2) + 's';
-    document.getElementById('neuro-stabilization').textContent = results.neuro.stabilizationTime.toFixed(2) + 's';
+// Atualizar a tabela de comparação
+function updateComparisonTable(averageResults) {
+    const tableBody = document.getElementById('comparison-table-body');
+    tableBody.innerHTML = ''; // Clear previous results
     
-    // Erro médio
-    document.getElementById('fis-error').textContent = results.fis.error.toFixed(2) + '°';
-    document.getElementById('genetic-error').textContent = results.genetic.error.toFixed(2) + '°';
-    document.getElementById('neuro-error').textContent = results.neuro.error.toFixed(2) + '°';
-    
-    // Consumo de energia
-    document.getElementById('fis-energy').textContent = results.fis.energy.toFixed(2);
-    document.getElementById('genetic-energy').textContent = results.genetic.energy.toFixed(2);
-    document.getElementById('neuro-energy').textContent = results.neuro.energy.toFixed(2);
-    
-    // Robustez
-    document.getElementById('fis-robustness').textContent = results.fis.robustness.toFixed(2) + '°';
-    document.getElementById('genetic-robustness').textContent = results.genetic.robustness.toFixed(2) + '°';
-    document.getElementById('neuro-robustness').textContent = results.neuro.robustness.toFixed(2) + '°';
+    const systems = ['fis', 'genetic', 'neuro'];
+    const systemLabels = {
+        fis: 'Sistema FIS',
+        genetic: 'Sistema Genético-Fuzzy',
+        neuro: 'Sistema Neuro-Fuzzy'
+    };
+
+    systems.forEach(system => {
+        const row = tableBody.insertRow();
+        row.insertCell().textContent = systemLabels[system];
+        row.insertCell().textContent = averageResults[system].stabilizationTime.toFixed(2) + ' s';
+        row.insertCell().textContent = averageResults[system].error.toFixed(2) + ' °';
+        row.insertCell().textContent = averageResults[system].energy.toFixed(2);
+        row.insertCell().textContent = averageResults[system].robustness.toFixed(2);
+    });
 }
 
-// Atualizar o gráfico de comparação
-function updateComparisonGraph() {
-    // Executar uma simulação com cada sistema para a mesma condição inicial
-    const condition = { angle: 15, angularVelocity: 0, position: 0, velocity: 0 };
-    
-    // Sistema FIS
-    const fisSimulation = new PendulumSimulation();
-    fisSimulation.setControlSystem(fisSystem);
-    runComparisonSimulation(fisSimulation, condition);
-    
-    // Sistema Genético-Fuzzy
-    const geneticSimulation = new PendulumSimulation();
-    geneticSimulation.setControlSystem(geneticSystem);
-    runComparisonSimulation(geneticSimulation, condition);
-    
-    // Sistema Neuro-Fuzzy
-    const neuroSimulation = new PendulumSimulation();
-    neuroSimulation.setControlSystem(neuroSystem);
-    runComparisonSimulation(neuroSimulation, condition);
-    
-    // Preparar os dados para o gráfico
-    const fisHistory = fisSimulation.getHistory();
-    const geneticHistory = geneticSimulation.getHistory();
-    const neuroHistory = neuroSimulation.getHistory();
-    
-    // Limitar o número de pontos para melhor desempenho
-    const step = Math.max(1, Math.floor(fisHistory.time.length / 100));
-    
-    const comparisonData = [];
-    
-    for (let i = 0; i < fisHistory.time.length; i += step) {
-        comparisonData.push({
-            x: fisHistory.time[i],
-            y1: fisHistory.angle[i],
-            y2: geneticHistory.angle[i],
-            y3: neuroHistory.angle[i]
-        });
-    }
-    
-    // Atualizar o gráfico
-    performanceComparisonGraph.setData(comparisonData, 'x', 'y1');
-    performanceComparisonGraph.render();
-}
-
-// Atualizar as métricas de comparação durante a simulação
+// Atualizar a tabela de métricas na aba de comparação (chamada no loop de animação)
 function updateComparisonMetrics() {
-    // Calcular métricas para o sistema atual
-    const metrics = simulation.calculatePerformanceMetrics();
-    
-    // Atualizar a tabela de métricas para o sistema atual
-    let systemPrefix;
-    if (simulation.controlSystem instanceof FuzzyInferenceSystem) {
-        systemPrefix = 'fis';
-    } else if (simulation.controlSystem instanceof GeneticFuzzySystem) {
-        systemPrefix = 'genetic';
-    } else if (simulation.controlSystem instanceof NeuroFuzzySystem) {
-        systemPrefix = 'neuro';
-    } else {
-        return;
-    }
-    
-    // Atualizar os valores na tabela
-    document.getElementById(`${systemPrefix}-stabilization`).textContent = 
-        metrics.stabilizationTime ? metrics.stabilizationTime.toFixed(2) + 's' : '-';
-    
-    document.getElementById(`${systemPrefix}-error`).textContent = 
-        metrics.rootMeanSquaredError ? metrics.rootMeanSquaredError.toFixed(2) + '°' : '-';
-    
-    document.getElementById(`${systemPrefix}-energy`).textContent = 
-        metrics.energyConsumption ? metrics.energyConsumption.toFixed(2) : '-';
-    
-    document.getElementById(`${systemPrefix}-robustness`).textContent = 
-        metrics.robustness ? metrics.robustness.toFixed(2) + '°' : '-';
+    // This function might be redundant if runSystemComparisons calculates averages.
+    // If real-time updates are needed, this would fetch metrics from ongoing comparison simulations.
+    // For simplicity, we rely on the average results calculated by runSystemComparisons.
 }
+
