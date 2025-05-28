@@ -1,0 +1,16 @@
+Algorithm,Run,StabilizationTime,TotalTime
+FIS,1,4.5,4.5
+FIS,2,4.8,4.8
+FIS,3,4.2,4.2
+FIS,4,5.1,5.1
+FIS,5,4.6,4.6
+Genetic,1,12.3,12.3
+Genetic,2,15.1,15.1
+Genetic,3,11.8,11.8
+Genetic,4,timeout,30.0
+Genetic,5,14.5,14.5
+Neuro,1,8.1,8.1
+Neuro,2,7.5,7.5
+Neuro,3,8.9,8.9
+Neuro,4,7.8,7.8
+Neuro,5,8.3,8.3
